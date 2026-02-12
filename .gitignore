@@ -1,2 +1,16 @@
+# secrets
 .env
+*.env
+
+# x-ui db
 xui/db/x-ui.db
+xui/db/*.db
+xui/db/*.sqlite*
+xui/db/*journal*
+
+# monitoring data
+monitoring/prometheus_data/
+monitoring/grafana_data/
+monitoring/alertmanager_data/
+
+**/data/

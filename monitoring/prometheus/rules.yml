@@ -1,0 +1,38 @@
+groups:
+  - name: basic
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Target down: {{ $labels.job }} / {{ $labels.instance }}"
+          description: "Prometheus не может собрать метрики с {{ $labels.instance }} (job={{ $labels.job }})"
+
+      - alert: BlackboxProbeFailed
+        expr: probe_success == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Probe failed: {{ $labels.instance }}"
+          description: "Blackbox не может проверить {{ $labels.instance }}"
+
+      - alert: HostHighCPU
+        expr: (100 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU > 90% 5 минут"
+
+      - alert: HostLowDisk
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Свободно < 15% 10 минут"

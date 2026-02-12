@@ -1,0 +1,89 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: monitoring_prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    networks:
+      - vpnnet
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: monitoring_alertmanager  
+    env_file:
+      - ../.env
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+      - "--config.expand-env"
+    ports:
+      - "9093:9093"
+    restart: unless-stopped
+    networks:
+      - vpnnet
+  
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: monitoring_grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin12345
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - vpnnet
+
+  node_exporter:
+    image: prom/node-exporter:v1.8.1
+    container_name: monitoring_node_exporter
+    pid: host
+    restart: unless-stopped
+    command:
+      - "--path.rootfs=/host"
+    volumes:
+      - /:/host:ro,rslave
+    ports:
+      - "9100:9100"
+    networks:
+      - vpnnet
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: monitoring_blackbox
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - "--config.file=/etc/blackbox_exporter/config.yml"
+    ports:
+      - "9115:9115"
+    restart: unless-stopped
+    networks:
+      - vpnnet
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+
+networks:
+  vpnnet:
+    external: true
+    name: aronxvpn_vpnnet
