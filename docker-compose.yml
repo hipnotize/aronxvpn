@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+
+  backend:
+    build: ./backend
+    container_name: vpn_backend
+    env_file:
+      - .env
+    depends_on:
+      - db
+    restart: always
+    networks:
+      - vpnnet
+
+  bot:
+    build: ./bot
+    container_name: vpn_bot
+    env_file:
+      - .env
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - vpnnet
+
+  db:
+    image: postgres:15
+    container_name: vpn_postgres
+    environment:
+      POSTGRES_USER: vpnuser
+      POSTGRES_PASSWORD: vpnpass
+      POSTGRES_DB: vpndb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - vpnnet
+
+  nginx:
+    image: nginx:latest
+    container_name: vpn_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - backend
+    networks:
+      - vpnnet
+
+volumes:
+  postgres_data:
+
+networks:
+  vpnnet:
