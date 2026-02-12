@@ -49,6 +49,19 @@ services:
     networks:
       - vpnnet
 
+  xui:
+    image: ghcr.io/mhsanaei/3x-ui:latest
+    container_name: xui
+    restart: unless-stopped
+    ports:
+      - "25221:2053"
+      - "443:443"
+    volumes:
+      - ./xui/db:/etc/x-ui
+      - ./xui/cert:/root/cert
+    networks:
+      - vpnnet
+
 volumes:
   postgres_data:
 

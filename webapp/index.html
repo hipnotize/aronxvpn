@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AronxVPN</title>
+  <style>
+    body { font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial; margin: 0; background:#0f1115; color:#eaeef6; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+    .card { background:#161a22; border:1px solid #232a36; border-radius:16px; padding:16px; margin:12px 0; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; }
+    button { background:#2b68ff; color:white; border:0; border-radius:12px; padding:12px 14px; font-weight:600; cursor:pointer; }
+    button.secondary { background:#232a36; }
+    .muted { color:#97a2b6; font-size: 13px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; word-break: break-all; background:#0f1115; border:1px solid #232a36; padding:12px; border-radius:12px; }
+    img { max-width: 240px; border-radius: 16px; border: 1px solid #232a36; }
+    h1 { margin: 8px 0 4px; font-size: 22px; }
+    h2 { margin: 0 0 10px; font-size: 16px; }
+    a { color:#2b68ff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>AronxVPN</h1>
+    <div class="muted">Личный кабинет внутри Telegram</div>
+
+    <div class="card">
+      <h2>Аккаунт</h2>
+      <div class="muted" id="who">Загрузка…</div>
+    </div>
+
+    <div class="card">
+      <h2>Мой VPN</h2>
+      <div class="row">
+        <button id="btnGet">Получить / Обновить</button>
+        <button class="secondary" id="btnCopy">Скопировать</button>
+      </div>
+      <div style="height:10px"></div>
+      <div id="link" class="mono">—</div>
+      <div style="height:12px"></div>
+      <div id="qrWrap" style="display:none">
+        <div class="muted">QR для подключения:</div>
+        <div style="height:8px"></div>
+        <img id="qr" alt="QR">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Мой трафик</h2>
+      <div class="row">
+        <button class="secondary" id="btnTraffic">Показать</button>
+      </div>
+      <div style="height:10px"></div>
+      <div id="traffic" class="mono">—</div>
+    </div>
+
+    <div class="card">
+      <h2>Инструкции</h2>
+      <div class="row">
+        <button class="secondary" id="btnIOS">iPhone</button>
+        <button class="secondary" id="btnAndroid">Android</button>
+      </div>
+      <div style="height:10px"></div>
+      <div id="guide" class="mono">Выбери устройство.</div>
+    </div>
+
+    <div class="card">
+      <div class="muted">
+        Если что-то не работает — вернись в бот и нажми <b>/start</b>.
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+
+    function initData() {
+      return tg?.initData || "";
+    }
+
+    async function api(path, options={}) {
+      const headers = Object.assign({}, options.headers || {}, {
+        "X-TG-InitData": initData(),
+      });
+      const r = await fetch(path, Object.assign({}, options, { headers }));
+      const text = await r.text();
+      let data = null;
+      try { data = JSON.parse(text); } catch { data = { raw: text }; }
+      if (!r.ok) throw new Error((data && (data.detail || data.error)) || ("HTTP "+r.status));
+      return data;
+    }
+
+    function setWho() {
+      if (!tg?.initDataUnsafe?.user) {
+        document.getElementById("who").textContent = "Открой через кнопку бота (Telegram Mini App).";
+        return;
+      }
+      const u = tg.initDataUnsafe.user;
+      document.getElementById("who").textContent =
+        `${u.first_name || ""} ${u.last_name || ""} (@${u.username || "—"}) • id=${u.id}`;
+    }
+
+    function bytes(n) {
+      if (n === null || n === undefined) return "—";
+      const units = ["B","KB","MB","GB","TB"];
+      let i=0; let v = Number(n);
+      while (v >= 1024 && i < units.length-1) { v /= 1024; i++; }
+      return v.toFixed(i===0?0:2) + " " + units[i];
+    }
+
+    async function getVpn() {
+      const data = await api("/api/me", { method: "GET" });
+      const link = data.vless_link || "—";
+      document.getElementById("link").textContent = link;
+
+      if (link && link.startsWith("vless://")) {
+        document.getElementById("qrWrap").style.display = "block";
+        QRCode.toDataURL(link, { margin: 1, width: 240 })
+          .then(url => document.getElementById("qr").src = url)
+          .catch(() => {});
+      }
+      if (tg) tg.HapticFeedback?.notificationOccurred("success");
+    }
+
+    async function copyVpn() {
+      const text = document.getElementById("link").textContent;
+      if (!text || text === "—") return;
+      try {
+        await navigator.clipboard.writeText(text);
+        if (tg) tg.showPopup({ title:"Готово", message:"Ссылка скопирована", buttons:[{type:"ok"}] });
+      } catch {
+        if (tg) tg.showPopup({ title:"Не вышло", message:"Скопируй вручную", buttons:[{type:"ok"}] });
+      }
+    }
+
+    async function getTraffic() {
+      const data = await api("/api/traffic", { method: "GET" });
+      const out = `Upload: ${bytes(data.upload)}\nDownload: ${bytes(data.download)}\nTotal: ${bytes(data.total)}`;
+      document.getElementById("traffic").textContent = out;
+    }
+
+    function guideIOS() {
+      document.getElementById("guide").textContent =
+`iPhone (рекомендовано): v2rayNG нет на iOS, используй:
+1) Shadowrocket (платный) или Streisand / FoXray (если есть)
+2) Открой ссылку VLESS (кнопка "Мой VPN" / скопируй)
+3) Вставь/импортируй в приложение
+4) Включи VPN
+
+Если приложение умеет "Scan QR" — сканируй QR из этого окна.`;
+    }
+
+    function guideAndroid() {
+      document.getElementById("guide").textContent =
+`Android:
+1) Установи v2rayNG
+2) Нажми "+" → Import from clipboard (или Scan QR)
+3) Вставь ссылку VLESS или сканируй QR
+4) Нажми круглую кнопку включения
+
+Если не подключается — напиши администратору (тебе), проверим inbound/Reality.`;
+    }
+
+    document.getElementById("btnGet").onclick = () => getVpn().catch(e => alert(e.message));
+    document.getElementById("btnCopy").onclick = () => copyVpn();
+    document.getElementById("btnTraffic").onclick = () => getTraffic().catch(e => alert(e.message));
+    document.getElementById("btnIOS").onclick = guideIOS;
+    document.getElementById("btnAndroid").onclick = guideAndroid;
+
+    setWho();
+  </script>
+</body>
+</html>
