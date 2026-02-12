@@ -11,8 +11,8 @@ route:
 receivers:
   - name: telegram
     telegram_configs:
-      - bot_token: ${TELEGRAM_ALERT_BOT_TOKEN}
-        chat_id: ${TELEGRAM_ALERT_CHAT_ID}
+      - bot_token: =)
+        chat_id: =)
         parse_mode: Markdown
         message: |
           *{{ .Status | toUpper }}* — *{{ .CommonLabels.alertname }}*
