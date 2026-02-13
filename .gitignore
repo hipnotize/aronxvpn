@@ -8,6 +8,10 @@ xui/db/*.db
 xui/db/*.sqlite*
 xui/db/*journal*
 
+# x-ui database (runtime data)
+xui/db/*.db
+xui/db/*.db-*
+
 # monitoring data
 monitoring/prometheus_data/
 monitoring/grafana_data/
